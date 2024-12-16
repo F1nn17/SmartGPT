@@ -4,13 +4,19 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Context.MODE_PRIVATE
 import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializationContext
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
+import com.google.gson.reflect.TypeToken
 import com.shiroma.smartgpt.interfaces.ApiService
+import com.shiroma.smartgpt.interfaces.Chat
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
+import java.lang.reflect.Type
 
 @SuppressLint("StaticFieldLeak")
 class RetrofitClient(private val context: Context,
@@ -34,7 +40,12 @@ class RetrofitClient(private val context: Context,
         }
         chain.proceed(requestBuilder.build())
     }
-    private val gson = GsonBuilder().setLenient().create()
+    private val gson = GsonBuilder()
+        .registerTypeAdapter(
+            object : TypeToken<List<Chat>>() {}.type,
+            ListChatDeserializer()
+        )
+        .create()
 
     private val client = OkHttpClient.Builder()
         .addInterceptor(authInterceptor)
@@ -50,5 +61,12 @@ class RetrofitClient(private val context: Context,
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()
             .create(ApiService::class.java)
+    }
+}
+
+class ListChatDeserializer : JsonDeserializer<List<Chat>> {
+    override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): List<Chat> {
+        val listType = object : TypeToken<List<Chat>>() {}.type
+        return context!!.deserialize(json, listType)
     }
 }

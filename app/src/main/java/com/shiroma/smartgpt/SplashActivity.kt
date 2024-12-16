@@ -11,9 +11,12 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import com.shiroma.smartgpt.data.RetrofitClient
+import java.math.BigDecimal
+import java.math.RoundingMode
+import kotlin.random.Random
 import com.shiroma.smartgpt.helpers.SslHelper
 import com.shiroma.smartgpt.interfaces.LoginRequest
+import com.shiroma.smartgpt.interfaces.PaymentRequest
 import com.shiroma.smartgpt.interfaces.RegisterRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,7 +57,7 @@ class SplashActivity : ComponentActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             if (!savedLogin.isNullOrEmpty() && !savedToken.isNullOrEmpty() && !savedPassword.isNullOrEmpty()) {
                 // Если логин и токен есть, выполняем запрос на вход
-                loginUser(UUID.fromString(savedLogin), savedPassword ,savedToken)
+                loginUser(sharedPref, UUID.fromString(savedLogin), savedPassword, savedToken)
             } else {
                 // Если логина нет, выполняем регистрацию
                 registerUser(sharedPref)
@@ -63,19 +66,30 @@ class SplashActivity : ComponentActivity() {
 
     }
 
-    private suspend fun loginUser(login: UUID, password: String ,token: String) {
+    private suspend fun loginUser(
+        sharedPref: android.content.SharedPreferences,
+        login: UUID,
+        password: String,
+        token: String
+    ) {
         try {
             val api = SslHelper(baseContext).getRetrofit()
-            val response = api.login(LoginRequest(login, password ,token)).execute()// Метод логина в API
+            val response = api.login(LoginRequest(login, password, token)).execute()// Метод логина в API
             if (response.isSuccessful) {
                 // Переход к основной активности
                 withContext(Dispatchers.Main) {
                     startActivity(Intent(this@SplashActivity, MainActivity::class.java))
                     finish()
                 }
+            } else if (response.code() == 418) {
+                val authToken = response.body()?.token
+                sharedPref.edit().apply {
+                    putString("auth_token", authToken)
+                    apply()
+                }
+                loginUser(sharedPref, login, password, token)
             } else {
                 showError("Login failed: ${response.code()}. Re-registering...")
-                val sharedPref = getSharedPreferences("AppPreferences", MODE_PRIVATE)
                 registerUser(sharedPref) // Если вход не удался, повторяем регистрацию
             }
         } catch (e: Exception) {
@@ -105,11 +119,20 @@ class SplashActivity : ComponentActivity() {
                             putString("auth_token", authToken)
                             apply()
                         }
-                        Log.d("TOKEN", "onCreate TOKEN: ${authToken}")
-                        // Переход к основной активности
-                        withContext(Dispatchers.Main) {
-                            startActivity(Intent(this@SplashActivity, MainActivity::class.java))
-                            finish()
+                        Log.d("TOKEN", "onCreate TOKEN: $authToken")
+                        //производим оплату
+                        val responsePayment = api.payment(
+                            PaymentRequest(
+                                UUID.fromString(sharedPref.getString("login", null)),
+                                randomBigDecimal()
+                            )
+                        ).execute()
+                        if (responsePayment.isSuccessful) {
+                            // Переход к основной активности
+                            withContext(Dispatchers.Main) {
+                                startActivity(Intent(this@SplashActivity, MainActivity::class.java))
+                                finish()
+                            }
                         }
                     } else {
                         showError("Failed to get auth token.")
@@ -121,6 +144,12 @@ class SplashActivity : ComponentActivity() {
                 showError("Error: ${e.message}")
             }
         }
+    }
+
+    private fun randomBigDecimal(): BigDecimal {
+        val randomValue = Random.nextLong(1, 1_000) // Рандомное число от 1 до 1 000
+        val randomDecimalPart = Random.nextInt(0, 100) // Дробная часть
+        return BigDecimal("$randomValue.$randomDecimalPart").setScale(2, RoundingMode.HALF_UP)
     }
 
 
