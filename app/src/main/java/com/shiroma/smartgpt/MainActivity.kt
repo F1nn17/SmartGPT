@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
             setContent {
                 val drawerState = rememberDrawerState(DrawerValue.Closed)
                 val scope = rememberCoroutineScope()
-                val selectedChat = mutableStateOf(chatList.firstOrNull()?.name ?: "Нет чатов")
+                val selectedChat =  remember { mutableStateOf<Chat?>(null) }
                 ModalNavigationDrawer(
                     drawerState = drawerState,
                     drawerContent = {
@@ -68,13 +68,12 @@ class MainActivity : ComponentActivity() {
                                 // Список чатов
                                 chatList.forEach { chat ->
                                     NavigationDrawerItem(
-                                        label = { Text(chat.name ?: "Це Фантом", fontSize = 20.sp) },
-                                        selected = selectedChat.value == chat.name,
+                                        label = { Text(chat.name ?: "Unnamed Chat", fontSize = 20.sp) },
+                                        selected = selectedChat.value?.id == chat.id,
                                         onClick = {
                                             scope.launch {
-                                                selectedChat.value = chat.name
-                                                openChat(chat) // Открываем выбранный чат в основном контенте
-                                                drawerState.close()
+                                                selectedChat.value = chat // Обновляем состояние выбранного чата
+                                                drawerState.close() // Закрываем сайдбар
                                             }
                                         },
                                         modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
@@ -97,13 +96,15 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     content = {
-                        // Основное содержимое — открываемый чат
-                        val chat = chatList.find { it.name == selectedChat.value }
+                        // Основное содержимое — отображение выбранного чата
+                        val chat = selectedChat.value
                         if (chat != null) {
-                            AndroidView(
-                                factory = { openChatView(chat) },
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            key(chat.id) { // Оборачиваем AndroidView в ключ
+                                AndroidView(
+                                    factory = { openChatView(chat) },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         } else {
                             Box(
                                 modifier = Modifier.fillMaxSize(),
