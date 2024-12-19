@@ -1,5 +1,6 @@
 package com.shiroma.smartgpt
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.Gravity
@@ -16,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.widget.EditText
 
 class MainActivity : ComponentActivity() {
     private val chatList = mutableListOf<Chat>() // Список чатов
@@ -139,18 +141,31 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun createChat() {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val api = SslHelper(baseContext).getRetrofit()
-                val newChat = api.createChat(chatRequest = ChatCreate("Новый чат ${chatList.size + 1}"))
-                withContext(Dispatchers.Main) {
-                    chatList.add(newChat)
-                    updateChatList()
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+        val inputField = EditText(this).apply {
+            hint = "Введите имя чата"
         }
+        AlertDialog.Builder(this).apply {
+            setTitle("Создать новый чат")
+            setView(inputField)
+            setPositiveButton("Создать") { _, _ ->
+                val chatName = inputField.text.toString().ifBlank { "Новый чат" }
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val api = SslHelper(baseContext).getRetrofit()
+                        val newChat = api.createChat(chatRequest = ChatCreate(chatName))
+                        withContext(Dispatchers.Main) {
+                            chatList.add(newChat)
+                            updateChatList()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+            setNegativeButton("Отмена", null)
+        }.show()
+
+
     }
 
     private fun deleteChat(chat: Chat) {

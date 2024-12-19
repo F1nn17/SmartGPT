@@ -22,7 +22,7 @@ import java.lang.reflect.Type
 class RetrofitClient(sslContext: SSLContext,
                      trustManager: X509TrustManager
 ) {
-    private val BASE_URL = "https://192.168.200.208:8443" // Замените на URL вашего сервера
+    private val BASE_URL = "https://192.168.0.100:8443" // Замените на URL вашего сервера
 
 
     private val gson = GsonBuilder()

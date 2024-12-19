@@ -32,7 +32,8 @@ class ChatActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         chatId = intent.getLongExtra("chat_id", -1)
         val chatName = intent.getStringExtra("chat_name") ?: "Чат"
-
+        // Инициализация адаптера
+        messageAdapter = MessageAdapter(messages)
         setupUI(chatName)
         loadMessagesFromServer()
     }
@@ -41,31 +42,22 @@ class ChatActivity : ComponentActivity() {
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun setupUI(chatName: String) {
-        val mainLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-        }
 
         val menuButton = Button(this).apply {
             text = "Меню"
             setOnClickListener { finish() }
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            )
+            ).apply {
+                gravity = Gravity.START
+            }
         }
 
         val recyclerView = RecyclerView(this).apply {
             layoutManager = LinearLayoutManager(this@ChatActivity)
-            adapter = MessageAdapter(messages).also { messageAdapter = it }
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f // Растягиваем на всё доступное пространство
-            )
+            adapter = messageAdapter
+            addItemDecoration(MessageAdapter.MessageItemDecoration(16)) // Устанавливаем отступы в пикселях
         }
 
         val messageInput = EditText(this).apply {
@@ -74,13 +66,21 @@ class ChatActivity : ComponentActivity() {
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 1f // Растягиваем на оставшееся пространство
-            )
+            ).apply {
+                setMargins(0, 0, 16, 64) // Отступ справа и снизу
+            }
         }
 
         val sendButton = Button(this).apply {
             text = "Отправить"
             setBackgroundColor(resources.getColor(android.R.color.holo_green_dark)) // Зелёный цвет
             setTextColor(resources.getColor(android.R.color.white)) // Белый текст
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(16, 0, 16, 64) // Отступы по бокам и снизу
+            }
             setOnClickListener {
                 val content = messageInput.text.toString()
                 messageInput.text = null
@@ -101,9 +101,22 @@ class ChatActivity : ComponentActivity() {
             )
         }
 
-        mainLayout.addView(menuButton)
-        mainLayout.addView(recyclerView)
-        mainLayout.addView(inputLayout)
+        val mainLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+            addView(menuButton)
+            addView(recyclerView, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0, 1f // Растягиваем на всё оставшееся пространство
+            ))
+            addView(inputLayout, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ))
+        }
 
         setContentView(mainLayout)
     }

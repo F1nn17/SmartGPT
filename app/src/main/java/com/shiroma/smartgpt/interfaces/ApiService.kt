@@ -2,6 +2,7 @@ package com.shiroma.smartgpt.interfaces
 
 import retrofit2.http.GET
 import retrofit2.Call
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -28,7 +29,7 @@ interface ApiService {
     suspend fun createChat(@Body chatRequest: ChatCreate): Chat
 
     @POST("/api/chat/delete")
-    suspend fun deleteChat(chatDelete: ChatDelete)
+    suspend fun deleteChat(@Body chatDelete: ChatDelete) : Response<Void>
 
     @GET("/api/chats/{chatId}/messages")
     suspend fun getMessages(@Path("chatId") chatId: Long): List<Message>
