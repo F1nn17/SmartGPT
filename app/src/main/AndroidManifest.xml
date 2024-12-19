@@ -17,7 +17,12 @@
             android:theme="@style/Theme.SmartGPT"
             tools:targetApi="35">
         <activity
-                android:name=".SplashActivity"
+                android:name=".ChatActivity"
+                android:exported="false"
+                android:label="@string/title_activity_chat"
+                android:theme="@style/Theme.SmartGPT"/>
+        <activity
+                android:name=".MainActivity"
                 android:exported="true"
                 android:theme="@style/Theme.SmartGPT">
             <intent-filter>
@@ -26,11 +31,6 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity
-                android:name=".MainActivity"
-                android:exported="true"
-                android:theme="@style/Theme.SmartGPT"
-        />
     </application>
 
 </manifest>

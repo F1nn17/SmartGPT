@@ -2,4 +2,5 @@
     <string name="app_name">SmartGPT</string>
     <string name="title_activity_main2">MainActivity2</string>
     <string name="title_activity_splash">SplashActivity</string>
+    <string name="title_activity_chat">ChatActivity</string>
 </resources>

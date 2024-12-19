@@ -19,27 +19,12 @@ import javax.net.ssl.X509TrustManager
 import java.lang.reflect.Type
 
 @SuppressLint("StaticFieldLeak")
-class RetrofitClient(private val context: Context,
-                     sslContext: SSLContext,
+class RetrofitClient(sslContext: SSLContext,
                      trustManager: X509TrustManager
 ) {
-    private val BASE_URL = "https://192.168.0.100:8443" // Замените на URL вашего сервера
+    private val BASE_URL = "https://192.168.200.208:8443" // Замените на URL вашего сервера
 
-    // Получение токена из SharedPreferences
-    private fun getAuthToken(): String? {
-        val sharedPref = context.getSharedPreferences("AppPreferences", MODE_PRIVATE)
-        return sharedPref.getString("auth_token", null)
-    }
 
-    // Добавление токена в заголовки
-    private val authInterceptor = Interceptor { chain ->
-        val requestBuilder = chain.request().newBuilder()
-        val token = getAuthToken()
-        if (!token.isNullOrEmpty()) {
-            requestBuilder.addHeader("Authorization", "Bearer $token") // Добавляем токен
-        }
-        chain.proceed(requestBuilder.build())
-    }
     private val gson = GsonBuilder()
         .registerTypeAdapter(
             object : TypeToken<List<Chat>>() {}.type,
@@ -48,7 +33,6 @@ class RetrofitClient(private val context: Context,
         .create()
 
     private val client = OkHttpClient.Builder()
-        .addInterceptor(authInterceptor)
         .sslSocketFactory(sslContext.socketFactory, trustManager)
         .hostnameVerifier { _, _ -> true }
         .build()

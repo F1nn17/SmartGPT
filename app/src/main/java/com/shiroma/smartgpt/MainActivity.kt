@@ -1,189 +1,179 @@
 package com.shiroma.smartgpt
 
-import android.os.Build
+import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import android.widget.FrameLayout
+import android.view.Gravity
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import androidx.activity.ComponentActivity
-import android.widget.Toast
-import androidx.activity.compose.setContent
-import androidx.annotation.RequiresApi
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import com.shiroma.smartgpt.helpers.SslHelper
 import com.shiroma.smartgpt.interfaces.Chat
-import com.shiroma.smartgpt.interfaces.ChatRequest
-import com.shiroma.smartgpt.interfaces.ChatsRequest
-import com.shiroma.smartgpt.view.ChatView
+import com.shiroma.smartgpt.interfaces.ChatCreate
+import com.shiroma.smartgpt.interfaces.ChatDelete
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.*
 
 class MainActivity : ComponentActivity() {
+    private val chatList = mutableListOf<Chat>() // Список чатов
+    private lateinit var chatContainer: LinearLayout
 
-    private val chatList = mutableStateListOf<Chat>()
-
-    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Загрузка списка чатов с сервера
+        setupUI()
         loadChatsFromServer()
-        setContent {
-            createSideBar(chatList) { chat ->
-                openChatView(chat) // Передаём функцию открытия чата
+    }
+
+    private fun setupUI() {
+        val mainLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        // Плашка "Выберите чат"
+        val headerTextView = TextView(this).apply {
+            text = "Выберите чат"
+            textSize = 24f
+            setTextColor(resources.getColor(android.R.color.black)) // Чёрный текст
+            setBackgroundColor(resources.getColor(android.R.color.darker_gray)) // Серый фон
+            setPadding(16, 16, 16, 16) // Отступы
+            gravity = Gravity.CENTER // Центрирование текста
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        chatContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f // Растягиваем контейнер на всё свободное пространство
+            )
+        }
+
+        val scrollView = ScrollView(this).apply {
+            addView(chatContainer)
+        }
+
+        val createChatButton = Button(this).apply {
+            text = "Создать чат"
+            setBackgroundColor(resources.getColor(android.R.color.holo_green_dark)) // Зелёный цвет
+            setTextColor(resources.getColor(android.R.color.white)) // Белый текст
+            setOnClickListener { createChat() }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(16, 16, 16, 16) // Отступы
             }
         }
-    }
-    private var isCreatingChat = false
-    @RequiresApi(Build.VERSION_CODES.O)
-    @Composable
-    fun createSideBar(chatList: SnapshotStateList<Chat>, openChat: (Chat) -> ChatView) {
-        FrameLayout(this).apply {
-            setContent {
-                val drawerState = rememberDrawerState(DrawerValue.Closed)
-                val scope = rememberCoroutineScope()
-                val selectedChat =  remember { mutableStateOf<Chat?>(null) }
-                ModalNavigationDrawer(
-                    drawerState = drawerState,
-                    drawerContent = {
-                        ModalDrawerSheet {
-                            Column {
-                                // Заголовок
-                                Text(
-                                    text = "Чаты",
-                                    fontSize = 24.sp,
-                                    modifier = Modifier.padding(16.dp)
-                                )
 
-                                // Список чатов
-                                chatList.forEach { chat ->
-                                    NavigationDrawerItem(
-                                        label = { Text(chat.name ?: "Unnamed Chat", fontSize = 20.sp) },
-                                        selected = selectedChat.value?.id == chat.id,
-                                        onClick = {
-                                            scope.launch {
-                                                selectedChat.value = chat // Обновляем состояние выбранного чата
-                                                drawerState.close() // Закрываем сайдбар
-                                            }
-                                        },
-                                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
-                                    )
-                                }
+        mainLayout.addView(headerTextView) // Добавляем плашку
+        mainLayout.addView(scrollView) // Контейнер для чатов
+        mainLayout.addView(createChatButton) // Кнопка внизу
 
-                                // Кнопка для создания нового чата
-                                Button(
-                                    onClick = {
-                                        if (!isCreatingChat) {
-                                            isCreatingChat = true
-                                            createNewChat(scope, drawerState)
-                                        }
-                                    },
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text("Создать новый чат")
-                                }
-                            }
-                        }
-                    },
-                    content = {
-                        // Основное содержимое — отображение выбранного чата
-                        val chat = selectedChat.value
-                        if (chat != null) {
-                            key(chat.id) { // Оборачиваем AndroidView в ключ
-                                AndroidView(
-                                    factory = { openChatView(chat) },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("Выберите или создайте чат", fontSize = 20.sp)
-                            }
-                        }
-                    }
-                )
-            }
-        }
+        setContentView(mainLayout)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun openChatView(chat: Chat) : ChatView {
-        Log.d("OPEN CHAT", "open chatId: ${chat.id} ")
-        return ChatView(this, chat.id).apply {
-            setChatName(chat.name ?: "Нет имени")
-            loadMessageFromServer() // Загрузка сообщений для выбранного чата
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createNewChat(scope: CoroutineScope, drawerState: DrawerState) {
-        val chatName = "Новый чат ${chatList.size + 1}" // Пример имени
-        val sharedPref = getSharedPreferences("AppPreferences", MODE_PRIVATE)
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val api = SslHelper(baseContext).getRetrofit()
-                val response = api.createChat(
-                    ChatRequest(
-                        UUID.fromString(sharedPref.getString("login", null)),
-                        chatName
-                    )
-                )
-                withContext(Dispatchers.Main) {
-                    if (!chatList.any { it.id == response.id }) { // Предотвращаем дублирование
-                        chatList.add(response)
-                    }
-                    // Закрываем DrawerState в контексте Compose
-                    scope.launch {
-                        drawerState.close()
-                        isCreatingChat = false
-                    }
-                }
-
-            } catch (e: Exception) {
-                showError("Error createNewChat: ${e.message}")
-            }
-        }
-    }
-
-
-    @RequiresApi(Build.VERSION_CODES.O)
     private fun loadChatsFromServer() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val sharedPref = getSharedPreferences("AppPreferences", MODE_PRIVATE)
                 val api = SslHelper(baseContext).getRetrofit()
-                val response = api.getChats(
-                    ChatsRequest(UUID.fromString(sharedPref.getString("login", null)))
-                )
+                val response = api.getChats()
                 withContext(Dispatchers.Main) {
                     chatList.clear()
                     chatList.addAll(response)
+                    updateChatList()
                 }
-
             } catch (e: Exception) {
-                showError("Error loadChatsFromServer: ${e.message}")
+                e.printStackTrace()
             }
         }
     }
 
-    private suspend fun showError(message: String) {
-        Log.d("ERROR", "Error: $message")
-        withContext(Dispatchers.Main) {
-            Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+    private fun updateChatList() {
+        chatContainer.removeAllViews()
+        chatList.forEach { chat ->
+            val chatItem = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(16, 8, 16, 8) // Отступы между чатами
+                }
+            }
+
+            val chatNameButton = Button(this@MainActivity).apply {
+                text = chat.name
+                setBackgroundColor(resources.getColor(android.R.color.transparent)) // Прозрачный фон
+                setTextColor(resources.getColor(android.R.color.black)) // Чёрный текст
+                setOnClickListener { openChat(chat) }
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f // Растягиваем на всё доступное пространство
+                )
+            }
+
+            val deleteButton = Button(this@MainActivity).apply {
+                text = "Удалить"
+                setBackgroundColor(resources.getColor(android.R.color.holo_red_dark)) // Красный цвет
+                setTextColor(resources.getColor(android.R.color.white)) // Белый текст
+                setOnClickListener { deleteChat(chat) }
+            }
+
+            chatItem.addView(chatNameButton)
+            chatItem.addView(deleteButton)
+
+            chatContainer.addView(chatItem)
         }
     }
 
+    private fun createChat() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val api = SslHelper(baseContext).getRetrofit()
+                val newChat = api.createChat(chatRequest = ChatCreate("Новый чат ${chatList.size + 1}"))
+                withContext(Dispatchers.Main) {
+                    chatList.add(newChat)
+                    updateChatList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun deleteChat(chat: Chat) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val api = SslHelper(baseContext).getRetrofit()
+                api.deleteChat(chatDelete = ChatDelete(chat.id))
+                withContext(Dispatchers.Main) {
+                    chatList.remove(chat)
+                    updateChatList()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun openChat(chat: Chat) {
+        val intent = Intent(this, ChatActivity::class.java).apply {
+            putExtra("chat_id", chat.id)
+            putExtra("chat_name", chat.name)
+        }
+        startActivity(intent)
+    }
 }
+

@@ -1,8 +1,6 @@
 package com.shiroma.smartgpt.helpers
 
 import android.content.Context
-import com.google.gson.GsonBuilder
-import com.shiroma.smartgpt.MainActivity
 import com.shiroma.smartgpt.R
 import com.shiroma.smartgpt.data.RetrofitClient
 import com.shiroma.smartgpt.interfaces.ApiService
@@ -11,9 +9,6 @@ import java.security.KeyStore
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
-import okhttp3.OkHttpClient
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 import java.security.SecureRandom
 import javax.net.ssl.TrustManagerFactory
 
@@ -47,7 +42,7 @@ class SslHelper(private val context: Context) {
 
 
         // Создаем Retrofit клиент с настроенным OkHttpClient
-        return RetrofitClient(context, sslContext, trustManager).api
+        return RetrofitClient(sslContext, trustManager).api
 
     }
 }
